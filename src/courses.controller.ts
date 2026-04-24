@@ -1,65 +1,49 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-
-type Course = {
-  id: number;
-  title: string;
-  description: string;
-  price: number;
-};
-
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { CoursesService } from './courses.service';
+import type { CreateCourseBody, UpdateCourseBody } from './courses.service';
 @Controller('courses')
 export class CoursesController {
-  private courses: Course[] = [
-    {
-      id: 1,
-      title: 'NestJS 入门',
-      description: '学习 NestJS 的 Controller、Service 和 Module',
-      price: 99,
-    },
-    {
-      id: 2,
-      title: 'TypeScript 基础',
-      description: '学习 TypeScript 常用类型和工程配置',
-      price: 59,
-    },
-  ];
+  constructor(private readonly coursesService: CoursesService) {}
 
   @Get()
   findAll(@Query('keyword') keyword?: string) {
-    if (!keyword) {
-      return this.courses;
-    }
-
-    return this.courses.filter((course) =>
-      course.title.toLowerCase().includes(keyword.toLowerCase()),
-    );
+    return this.coursesService.findAll(keyword);
   }
 
-  @Get(':id') // Param 读取路径参数
+  @Get(':id')
   findOne(@Param('id') id: string) {
-    const courseId = Number(id);
-    const course = this.courses.find((item) => item.id === courseId);
-
-    if (!course) {
-      return {
-        message: 'No course exist',
-      };
-    }
-
-    return course;
+    return this.coursesService.findOne(Number(id)); // url通常传的是字符串
   }
 
   @Post()
-  create(@Body() body: any) {
-    const course: Course = {
-      id: this.courses.length + 1,
+  create(@Body() body: CreateCourseBody) {
+    return this.coursesService.create({
       title: body.title,
       description: body.description,
       price: body.price,
-    };
+    });
+  }
 
-    this.courses.push(course);
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body: UpdateCourseBody) {
+    return this.coursesService.update(Number(id), {
+      title: body.title,
+      description: body.description,
+      price: body.price,
+    });
+  }
 
-    return course;
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.coursesService.remove(Number(id));
   }
 }
