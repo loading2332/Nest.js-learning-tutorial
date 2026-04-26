@@ -11,7 +11,12 @@ export type Course = {
   price: number;
   status: CourseStatus;
 };
-
+export type FindCourseQuery = {
+  keyword?: string;
+  status?: CourseStatus;
+  page: number;
+  limit: number;
+};
 @Injectable()
 export class CoursesService {
   private courses: Course[] = [
@@ -39,13 +44,21 @@ export class CoursesService {
     return maxId + 1;
   }
 
-  findAll(keyword?: string) {
-    if (!keyword) {
-      return this.courses;
+  findAll(query: FindCourseQuery) {
+    const { keyword, status, page, limit } = query;
+    let result = this.courses;
+    if (keyword) {
+      result = result.filter((course) =>
+        course.title.toLowerCase().includes(keyword.toLowerCase()),
+      );
     }
-    return this.courses.filter((course) =>
-      course.title.toLowerCase().includes(keyword.toLowerCase()),
-    );
+    if (status) {
+      result = result.filter((course) => course.status === status);
+    }
+    const start = (page - 1) * limit;
+    const end = start + limit;
+
+    return result.slice(start, end);
   }
 
   findOne(id: number) {
