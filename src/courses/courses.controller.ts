@@ -9,7 +9,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { CoursesService } from './courses.service';
-import type { CreateCourseBody, UpdateCourseBody } from './courses.service';
+import { CreateCourseDto } from './dto/create-course.dto';
+import { UpdateCourseDto } from './dto/update-course.dto';
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
@@ -25,21 +26,13 @@ export class CoursesController {
   }
 
   @Post()
-  create(@Body() body: CreateCourseBody) {
-    return this.coursesService.create({
-      title: body.title,
-      description: body.description,
-      price: body.price,
-    });
+  create(@Body() body: CreateCourseDto) {
+    return this.coursesService.create(body);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: UpdateCourseBody) {
-    return this.coursesService.update(Number(id), {
-      title: body.title,
-      description: body.description,
-      price: body.price,
-    });
+  update(@Param('id') id: string, @Body() body: UpdateCourseDto) {
+    return this.coursesService.update(Number(id), body);
   }
 
   @Delete(':id')

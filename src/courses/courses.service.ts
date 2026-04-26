@@ -1,19 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { CreateCourseDto } from './dto/create-course.dto';
+import { UpdateCourseDto } from './dto/update-course.dto';
+
+export type CourseStatus = 'draft' | 'published';
 
 export type Course = {
   id: number;
   title: string;
-  description: string;
+  description?: string;
   price: number;
+  status: CourseStatus;
 };
 
-export type CreateCourseBody = {
-  title: string;
-  description: string;
-  price: number;
-};
-
-export type UpdateCourseBody = Partial<CreateCourseBody>;
 @Injectable()
 export class CoursesService {
   private courses: Course[] = [
@@ -22,12 +20,14 @@ export class CoursesService {
       title: 'NestJS 入门',
       description: '学习 NestJS 的 Controller、Service 和 Module',
       price: 99,
+      status: 'published',
     },
     {
       id: 2,
       title: 'TypeScript 基础',
       description: '学习 TypeScript 常用类型和工程配置',
       price: 59,
+      status: 'published',
     },
   ];
 
@@ -60,18 +60,19 @@ export class CoursesService {
     return course;
   }
 
-  create(input: CreateCourseBody) {
+  create(input: CreateCourseDto) {
     const course: Course = {
       id: this.getNextId(),
       title: input.title,
       description: input.description,
       price: input.price,
+      status: input.status ?? 'draft',
     };
     this.courses.push(course);
     return course;
   }
 
-  update(id: number, input: UpdateCourseBody) {
+  update(id: number, input: UpdateCourseDto) {
     const course = this.courses.find((item) => item.id === id);
     if (!course) {
       return {
