@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 
@@ -65,15 +65,17 @@ export class CoursesService {
     const course = this.courses.find((item) => item.id === id);
 
     if (!course) {
-      return {
-        message: 'no course exist!',
-      };
+      throw new NotFoundException('Not Exists')
     }
 
     return course;
   }
 
   create(input: CreateCourseDto) {
+    const existCourse = this.courses.find((course) => course.title === input.title)
+    if (existCourse) {
+      throw new BadRequestException('already exists')
+    }
     const course: Course = {
       id: this.getNextId(),
       title: input.title,
