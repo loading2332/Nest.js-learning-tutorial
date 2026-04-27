@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 
@@ -44,6 +48,16 @@ export class CoursesService {
     return maxId + 1;
   }
 
+  private findCourseById(id: number) {
+    const course = this.courses.find((item) => item.id === id);
+
+    if (!course) {
+      throw new NotFoundException('Not Exists');
+    }
+
+    return course;
+  }
+
   findAll(query: FindCourseQuery) {
     const { keyword, status, page, limit } = query;
     let result = this.courses;
@@ -62,19 +76,15 @@ export class CoursesService {
   }
 
   findOne(id: number) {
-    const course = this.courses.find((item) => item.id === id);
-
-    if (!course) {
-      throw new NotFoundException('Not Exists')
-    }
-
-    return course;
+    return this.findCourseById(id);
   }
 
   create(input: CreateCourseDto) {
-    const existCourse = this.courses.find((course) => course.title === input.title)
+    const existCourse = this.courses.find(
+      (course) => course.title === input.title,
+    );
     if (existCourse) {
-      throw new BadRequestException('already exists')
+      throw new BadRequestException('already exists');
     }
     const course: Course = {
       id: this.getNextId(),
@@ -88,27 +98,15 @@ export class CoursesService {
   }
 
   update(id: number, input: UpdateCourseDto) {
-    const course = this.courses.find((item) => item.id === id);
-    if (!course) {
-      return {
-        message: 'no course exists',
-      };
-    }
+    const course = this.findCourseById(id);
 
     Object.assign(course, input);
     return course;
   }
 
   remove(id: number) {
-    const index = this.courses.findIndex((item) => item.id === id);
-
-    if (index === -1) {
-      return {
-        message: 'no course exists!',
-      };
-    }
-
-    const [removedCourse] = this.courses.splice(index, 1);
+    const removedCourse = this.findCourseById(id);
+    this.courses = this.courses.filter((item) => item.id !== id);
 
     return removedCourse;
   }
