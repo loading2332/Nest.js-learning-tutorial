@@ -29,6 +29,56 @@ return data
   -> success response
 ```
 
+## 先回答你的疑问：这一节在实际项目中意义大吗？
+
+你的感觉是对的：如果这一节只讲“把所有成功响应都包成 `{ success, data }`”，它在真实项目里的价值并不一定大。
+
+很多成熟项目不会强制所有接口都套一层统一成功响应。原因是：
+
+- HTTP 状态码本身已经能表达成功或失败。
+- REST API 直接返回资源对象或数组也很清晰。
+- 文件下载、流式响应、图片响应不适合套 JSON。
+- 统一包装会让前端永远多取一层 `data`。
+- 和第三方 API、OpenAPI、一些客户端生成工具集成时，额外包装可能反而麻烦。
+
+所以更准确的结论是：
+
+```txt
+统一成功响应不是每个项目都必须做。
+Interceptor 也不是为了统一响应才存在。
+```
+
+那为什么还要学这一节？
+
+因为 Interceptor 在实际项目中真正有价值的地方是“横切逻辑”：
+
+```txt
+请求耗时日志
+接口性能监控
+请求 traceId / requestId
+响应字段脱敏
+缓存
+超时控制
+统一序列化
+审计日志
+```
+
+这些逻辑有一个共同特点：
+
+```txt
+很多接口都需要，但不应该散落在每个 Controller 方法里。
+```
+
+因此本节你可以这样取舍：
+
+- 必学：Interceptor 的执行位置、`next.handle()`、`map`、`tap`、请求耗时日志。
+- 了解：统一成功响应怎么做。
+- 保留判断：真实项目是否统一包装成功响应，要看团队约定和客户端需求。
+
+这一节不是要告诉你“所有项目都应该统一响应”，而是让你掌握：
+
+> 当一段逻辑需要包住很多接口的执行前后时，NestJS 应该用 Interceptor 处理。
+
 ## 一、Interceptor 解决什么问题
 
 现在项目里的接口成功响应可能长这样：
@@ -605,7 +655,109 @@ Pipe 管入口，Filter 管失败，Interceptor 管过程和成功出口。
 
 本课程阶段先统一普通 JSON API。文件下载、上传、流式响应后面再单独处理。
 
-## 十三、常见问题
+## 十三、实际项目中更推荐怎么用 Interceptor
+
+如果你觉得“统一成功响应”意义不大，可以把本节重点放在下面这些更实用的场景。
+
+### 1. 请求耗时日志
+
+这是最常见、最值得做的。
+
+你可以知道：
+
+```txt
+哪个接口慢？
+哪个接口经常失败？
+一次请求花了多少毫秒？
+```
+
+这类信息不应该写在每个 Controller 里。
+
+更适合放在 Interceptor：
+
+```ts
+return next.handle().pipe(
+  tap({
+    next: () => {
+      const duration = Date.now() - startTime;
+      this.logger.log(`${method} ${url} ${duration}ms`);
+    },
+    error: () => {
+      const duration = Date.now() - startTime;
+      this.logger.warn(`${method} ${url} failed ${duration}ms`);
+    },
+  }),
+);
+```
+
+### 2. 添加请求追踪 ID
+
+真实生产环境里，一个请求可能经过：
+
+```txt
+网关 -> 后端 API -> 数据库 -> 第三方服务
+```
+
+如果没有请求 ID，排查问题会很痛苦。
+
+Interceptor 可以统一读取或生成 `requestId`，并把它放到日志和响应头里。
+
+本课程暂时不展开实现，但你要知道这是非常实用的方向。
+
+### 3. 响应脱敏
+
+有些字段不能直接返回给客户端，例如：
+
+```txt
+password
+passwordHash
+secret
+token
+internalRemark
+```
+
+简单项目可以在 Service 或 DTO 层处理。更复杂的项目可能会用 Interceptor 或序列化工具统一处理。
+
+### 4. 缓存
+
+一些查询接口可能很慢，但结果短时间内不变。
+
+Interceptor 可以在 Controller 执行前先查缓存：
+
+```txt
+缓存命中
+  -> 直接返回
+
+缓存未命中
+  -> 执行 Controller
+  -> 保存结果到缓存
+  -> 返回响应
+```
+
+这也是典型的“包住接口执行过程”的场景。
+
+### 5. 哪些场景不建议用 Interceptor
+
+不要把所有事情都塞进 Interceptor。
+
+不建议：
+
+- 在 Interceptor 里写具体业务规则。
+- 在 Interceptor 里替代 DTO 校验。
+- 在 Interceptor 里随意修改请求体。
+- 让 Interceptor 猜测业务语义，比如“所有数组都自动变分页”。
+- 为了看起来统一，强行包装文件下载、图片、流式响应。
+
+判断标准很简单：
+
+```txt
+如果逻辑属于某个具体业务，放 Service。
+如果逻辑属于请求参数处理，放 Pipe。
+如果逻辑属于错误响应，放 Filter。
+如果逻辑需要包住很多接口的前后过程，才考虑 Interceptor。
+```
+
+## 十四、常见问题
 
 ### 1. 为什么我写了 Interceptor，但响应没有变化？
 
@@ -667,7 +819,7 @@ console.log('GET /courses end');
 
 请求参数转换和校验优先交给 Pipe。Interceptor 更适合处理执行前后的通用逻辑，比如日志、响应包装、缓存。
 
-## 十四、本节练习任务
+## 十五、本节练习任务
 
 ### 任务 1：创建统一成功响应 Interceptor
 
@@ -748,7 +900,26 @@ curl http://localhost:3000/courses/999
 不同字段：
 ```
 
-## 十五、本节知识输出
+### 任务 6：判断统一成功响应是否值得保留
+
+要求：
+
+结合自己的理解，写一段判断：
+
+```txt
+我认为当前学习项目是否应该保留 ResponseInterceptor？
+如果保留，理由是什么？
+如果不保留，理由是什么？
+LoggingInterceptor 是否仍然值得保留？
+```
+
+参考方向：
+
+- 学习项目可以保留，用来理解 Interceptor 的机制。
+- 真实项目不一定保留，要看团队和客户端约定。
+- 请求耗时日志通常比统一成功响应更有实际价值。
+
+## 十六、本节知识输出
 
 请在学习笔记中回答：
 
@@ -760,10 +931,11 @@ curl http://localhost:3000/courses/999
 6. Pipe、Filter、Interceptor 的职责分别是什么？
 7. 统一响应结构有什么优点？有什么代价？
 8. 为什么分页信息应该由列表业务自己返回，而不是让 Interceptor 猜测？
+9. 你认为真实项目中哪些 Interceptor 场景最值得做？哪些不值得做？
 
 建议结合本节的 `ResponseInterceptor`、`LoggingInterceptor` 和 `CoursesService.findAll()` 回答。
 
-## 十六、本节最小验收
+## 十七、本节最小验收
 
 - 新增文件：`src/common/interceptors/response.interceptor.ts`
 - 新增文件：`src/common/interceptors/logging.interceptor.ts`
@@ -782,7 +954,7 @@ curl http://localhost:3000/courses/999
   - 请求链路追踪 ID。
   - 使用依赖注入方式注册全局 Interceptor。
 
-## 十七、本节验收标准
+## 十八、本节验收标准
 
 完成本节后，请确认：
 
@@ -797,8 +969,9 @@ curl http://localhost:3000/courses/999
 - `pnpm run build` 可以通过。
 - `pnpm run lint` 可以通过。
 - 你能说清楚 Pipe、Filter、Interceptor 的职责边界。
+- 你能说清楚为什么统一成功响应有争议，以及为什么请求日志更接近真实项目需求。
 
-## 十八、下一节预告
+## 十九、下一节预告
 
 下一节会学习配置管理与环境变量。
 

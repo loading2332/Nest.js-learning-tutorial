@@ -71,8 +71,16 @@ export class CoursesService {
     }
     const start = (page - 1) * limit;
     const end = start + limit;
+    const items = result.slice(start, end);
 
-    return result.slice(start, end);
+    return {
+      items,
+      meta: {
+        total: result.length,
+        page,
+        limit,
+      },
+    };
   }
 
   findOne(id: number) {
