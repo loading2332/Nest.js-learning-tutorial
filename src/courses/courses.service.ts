@@ -6,6 +6,7 @@ import {
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateLessonDto } from './dto/create-lesson.dto';
 
 export type CourseStatus = 'draft' | 'published';
 
@@ -64,6 +65,13 @@ export class CoursesService {
   async findOne(id: number) {
     const course = await this.prisma.course.findUnique({
       where: { id },
+      include: {
+        lessons: {
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+      },
     });
     if (!course) {
       throw new NotFoundException('course not found');
@@ -87,6 +95,67 @@ export class CoursesService {
         price: input.price,
         status: input.status ?? 'draft',
       },
+    });
+  }
+
+  async createLesson(courseId: number, input: CreateLessonDto) {
+    await this.findOne(courseId);
+    return this.prisma.lesson.create({
+      data: {
+        title: input.title,
+        content: input.content,
+        sortOrder: input.sortOrder ?? 0,
+        courseId,
+      },
+    });
+  }
+
+  async enroll(courseId: number, userId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+      });
+      if (!user) {
+        throw new NotFoundException('user not found');
+      }
+      const course = await tx.course.findUnique({
+        where: { id: courseId },
+      });
+      if (!course) {
+        throw new NotFoundException('course not found');
+      }
+      const existingEnrollment = await tx.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId,
+            courseId,
+          },
+        },
+      });
+      if (existingEnrollment) {
+        throw new BadRequestException('already enrolled');
+      }
+      return tx.enrollment.create({
+        data: {
+          userId,
+          courseId,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+            },
+          },
+          course: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+      });
     });
   }
 

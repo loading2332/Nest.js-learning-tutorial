@@ -15,6 +15,8 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CourseStatusPipe } from './pipes/courses-status.pipe';
 import type { CourseStatus } from './courses.service';
+import { CreateLessonDto } from './dto/create-lesson.dto';
+import { EnrollCourseDto } from './dto/enroll-course.dto';
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
@@ -42,6 +44,22 @@ export class CoursesController {
   @Post()
   create(@Body() body: CreateCourseDto) {
     return this.coursesService.create(body);
+  }
+
+  @Post(':id/lessons')
+  createLesson(
+    @Param('id', ParseIntPipe) courseId: number,
+    @Body() body: CreateLessonDto,
+  ) {
+    return this.coursesService.createLesson(courseId, body);
+  }
+
+  @Post(':courseId/enrollments')
+  enroll(
+    @Param('courseId', ParseIntPipe) courseId: number,
+    @Body() body: EnrollCourseDto,
+  ) {
+    return this.coursesService.enroll(courseId, body.userId);
   }
 
   @Patch(':id')
