@@ -266,6 +266,62 @@ src/generated/prisma
 
 导入路径也要同步改。
 
+### 重要：让 Nest build 复制生成客户端
+
+因为 Prisma Client 生成到了：
+
+```txt
+src/generated/client
+```
+
+而 `nest build` 默认主要编译 TypeScript，不会自动把 Prisma 生成的 `.js`、`.wasm` 等文件复制到 `dist`。
+
+如果运行 `pnpm run start` 或生产构建时看到：
+
+```txt
+Cannot find module '../generated/client/index.js'
+```
+
+说明构建产物里缺少生成客户端。
+
+需要在 `nest-cli.json` 中加 assets：
+
+```json
+{
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "assets": [
+      {
+        "include": "generated/client/**/*",
+        "outDir": "dist/src"
+      }
+    ]
+  }
+}
+```
+
+这样 `src/generated/client` 会被复制到：
+
+```txt
+dist/src/generated/client
+```
+
+同时，生成代码不应该被 ESLint 检查，可以在 `eslint.config.mjs` 中忽略：
+
+```ts
+{
+  ignores: ['eslint.config.mjs', 'src/generated/**'],
+}
+```
+
+一句话：
+
+```txt
+生成客户端放在 src 下时，要处理两个问题：
+1. build 时复制到 dist
+2. lint 时忽略生成代码
+```
+
 ## 六、创建 `PrismaService`
 
 建议创建目录：

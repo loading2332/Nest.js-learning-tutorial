@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 export type CourseStatus = 'draft' | 'published';
 
@@ -23,99 +24,89 @@ export type FindCourseQuery = {
 };
 @Injectable()
 export class CoursesService {
-  private courses: Course[] = [
-    {
-      id: 1,
-      title: 'NestJS 入门',
-      description: '学习 NestJS 的 Controller、Service 和 Module',
-      price: 99,
-      status: 'published',
-    },
-    {
-      id: 2,
-      title: 'TypeScript 基础',
-      description: '学习 TypeScript 常用类型和工程配置',
-      price: 59,
-      status: 'published',
-    },
-  ];
-
-  private getNextId() {
-    const maxId = this.courses.reduce((max, course) => {
-      return course.id > max ? course.id : max;
-    }, 0);
-
-    return maxId + 1;
-  }
-
-  private findCourseById(id: number) {
-    const course = this.courses.find((item) => item.id === id);
-
-    if (!course) {
-      throw new NotFoundException('Not Exists');
-    }
-
-    return course;
-  }
-
-  findAll(query: FindCourseQuery) {
+  constructor(private readonly prisma: PrismaService) {}
+  async findAll(query: FindCourseQuery) {
     const { keyword, status, page, limit } = query;
-    let result = this.courses;
-    if (keyword) {
-      result = result.filter((course) =>
-        course.title.toLowerCase().includes(keyword.toLowerCase()),
-      );
-    }
-    if (status) {
-      result = result.filter((course) => course.status === status);
-    }
-    const start = (page - 1) * limit;
-    const end = start + limit;
-    const items = result.slice(start, end);
+    const skip = (page - 1) * limit;
+    const where = {
+      ...(keyword
+        ? {
+            title: {
+              contains: keyword,
+              mode: 'insensitive' as const,
+            },
+          }
+        : {}),
+      ...(status ? { status } : {}),
+    };
 
+    const [items, total] = await Promise.all([
+      this.prisma.course.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          id: 'asc',
+        },
+      }),
+      this.prisma.course.count({ where }),
+    ]);
     return {
       items,
       meta: {
-        total: result.length,
+        total,
         page,
         limit,
       },
     };
   }
 
-  findOne(id: number) {
-    return this.findCourseById(id);
+  async findOne(id: number) {
+    const course = await this.prisma.course.findUnique({
+      where: { id },
+    });
+    if (!course) {
+      throw new NotFoundException('course not found');
+    }
+    return course;
   }
 
-  create(input: CreateCourseDto) {
-    const existCourse = this.courses.find(
-      (course) => course.title === input.title,
-    );
+  async create(input: CreateCourseDto) {
+    const existCourse = await this.prisma.course.findUnique({
+      where: {
+        title: input.title,
+      },
+    });
     if (existCourse) {
       throw new BadRequestException('already exists');
     }
-    const course: Course = {
-      id: this.getNextId(),
-      title: input.title,
-      description: input.description,
-      price: input.price,
-      status: input.status ?? 'draft',
-    };
-    this.courses.push(course);
-    return course;
+    return this.prisma.course.create({
+      data: {
+        title: input.title,
+        description: input.description,
+        price: input.price,
+        status: input.status ?? 'draft',
+      },
+    });
   }
 
-  update(id: number, input: UpdateCourseDto) {
-    const course = this.findCourseById(id);
-
-    Object.assign(course, input);
-    return course;
+  async update(id: number, input: UpdateCourseDto) {
+    await this.findOne(id);
+    return this.prisma.course.update({
+      where: { id },
+      data: {
+        title: input.title,
+        description: input.description,
+        price: input.price,
+        status: input.status,
+      },
+    });
   }
 
-  remove(id: number) {
-    const removedCourse = this.findCourseById(id);
-    this.courses = this.courses.filter((item) => item.id !== id);
-
-    return removedCourse;
+  async remove(id: number) {
+    await this.findOne(id);
+    return this.prisma.course.delete({
+      where: { id },
+    });
   }
 }
