@@ -25,13 +25,14 @@ enum UserRole {
 }
 
 model User {
-  id          Int          @id @default(autoincrement())
-  email       String       @unique
-  name        String
-  role        UserRole     @default(student)
-  enrollments Enrollment[]
-  createAt    DateTime     @default(now())
-  updateAt    DateTime     @updatedAt
+  id           Int          @id @default(autoincrement())
+  email        String       @unique
+  name         String
+  passwordHash String
+  role         UserRole     @default(student)
+  enrollments  Enrollment[]
+  createAt     DateTime     @default(now())
+  updateAt     DateTime     @updatedAt
 }
 
 model Course {
